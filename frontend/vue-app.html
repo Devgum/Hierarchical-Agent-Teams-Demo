@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchical Agent Teams - Vue Stream Demo</title>
+    <link rel="icon" href="data:,">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="css/vue-app.css">
+</head>
+<body>
+    <div id="app">
+        <h1>Hierarchical Agent Teams</h1>
+        
+        <div class="container">
+            <div class="input-workspace-container">
+                <!-- User input area -->
+                <div class="input-area">
+                    <div class="area-header">
+                        <h3>Input</h3>
+                    </div>
+                    <div class="input-content">
+                        <div class="textarea-container">
+                            <textarea 
+                                v-model="query" 
+                                placeholder="Input your requirements..." 
+                                :disabled="isLoading"
+                            ></textarea>
+                        </div>
+                        
+                        <div class="controls">
+                            <div class="settings">
+                                <label for="recursion-limit">Recursion Limit:</label>
+                                <input 
+                                    type="number" 
+                                    id="recursion-limit" 
+                                    v-model="recursionLimit" 
+                                    min="1" 
+                                    max="500" 
+                                    :disabled="isLoading"
+                                />
+                            </div>
+                            
+                            <div class="button-group">
+                                <button 
+                                    @click="submitQuery" 
+                                    :disabled="isLoading || !query.trim()"
+                                    class="primary-button"
+                                >
+                                    Submit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Workspace file list -->
+                <div class="workspace-files">
+                    <div class="area-header">
+                        <h3>Workspace Files</h3>
+                        <div class="header-controls">
+                            <button 
+                                @click="refreshWorkspaceFiles" 
+                                :disabled="isLoading || !sessionId"
+                                class="small-button"
+                            >
+                                Refresh
+                            </button>
+                            <button 
+                                @click="downloadWorkspaceFile" 
+                                :disabled="!selectedWorkspaceFile"
+                                class="download-button"
+                            >
+                                <span class="download-icon">↓</span> Download
+                            </button>
+                        </div>
+                    </div>
+                    <div class="file-list-container">
+                        <div v-if="workspaceFiles.length === 0" class="no-files">
+                            {{ sessionId ? 'Empty' : 'Please submit requirements first' }}
+                        </div>
+                        <div 
+                            v-for="(file, index) in workspaceFiles" 
+                            :key="index"
+                            class="file-item"
+                            :class="{ 'active': selectedWorkspaceFileIndex === index }"
+                            @click="selectWorkspaceFile(index)"
+                        >
+                            {{ file }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Process display area - chat window style -->
+            <div class="process-area">
+                <div class="area-header">
+                    <h3>Process</h3>
+                    <div class="header-controls">
+                        <div class="status-indicator" :class="{ 'active': isLoading }">
+                            <span class="status-dot"></span>
+                            <span class="status-text">{{ statusMessage }}</span>
+                        </div>
+                        <span v-if="isLoading" class="loading"></span>
+                        <button 
+                            @click="clearResponse" 
+                            :disabled="isLoading || !hasResponse"
+                            class="small-button"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                </div>
+                <div class="chat-container">
+                    <div class="chat-messages" ref="processContent">
+                        <!-- User query message -->
+                        <div v-if="userQuery" class="message user-message clearfix">
+                            <div class="message-header">
+                                <div class="message-avatar user-avatar">U</div>
+                                <div>User</div>
+                                <div class="message-time">{{ userQueryTime }}</div>
+                            </div>
+                            <div class="message-content">{{ userQuery }}</div>
+                        </div>
+                        
+                        <!-- System response messages -->
+                        <template v-for="(item, index) in chatMessages" :key="index">
+                            <!-- Team messages -->
+                            <div class="message system-message clearfix">
+                                <div class="message-header">
+                                    <div :class="['message-avatar', `${item.team}-avatar`]">
+                                        {{ item.team === 'research' ? 'R' : item.team === 'writing' ? 'W' : item.team === 'supervisor' ? 'SV' : 'S' }}
+                                    </div>
+                                    <div>{{ item.sender }}</div>
+                                    <div class="message-time">{{ item.timestamp }}</div>
+                                </div>
+                                <div class="message-content" v-html="item.content"></div>
+                            </div>
+                        </template>
+                        
+                        <!-- Typing indicator -->
+                        <div v-if="isLoading" class="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Result preview area -->
+            <div class="result-area" v-if="hasResult">
+                <div class="area-header">
+                    <h3>Result File Preview</h3>
+                    <div class="header-controls">
+                        <button 
+                            @click="downloadResult" 
+                            :disabled="!hasResult"
+                            class="download-button"
+                        >
+                            <span class="download-icon">↓</span> Download
+                        </button>
+                    </div>
+                </div>
+                <div class="result-content">
+                    <div class="file-list" v-if="resultFiles.length > 0">
+                        <div 
+                            v-for="(file, index) in resultFiles" 
+                            :key="index"
+                            class="file-item"
+                            :class="{ 'active': selectedFileIndex === index }"
+                            @click="selectFile(index)"
+                        >
+                            {{ file.name }}
+                        </div>
+                    </div>
+                    <div class="file-preview">
+                        <pre v-if="selectedFile">{{ selectedFile.content }}</pre>
+                        <div v-else class="no-preview">Select a file to view preview</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Add footer to display session information -->
+        <div class="footer">
+            <div v-if="sessionId">
+                Current Session ID: <span class="session-info">{{ sessionId }}</span>
+            </div>
+            <div v-else>
+                No session created
+            </div>
+        </div>
+    </div>
+    <script src="js/vue-app.js"></script>
+</body>
+</html>
