@@ -18,13 +18,13 @@ def run_cli_mode():
     """Run command line interactive mode (for testing)"""
     setup_environment()
 
-    # llm = ChatOpenAI(model='gpt-4o')
-    llm = ChatOpenAI(
-        model="openai/gpt-4o-2024-11-20",
-        temperature=0,
-        api_key=os.environ["OPENROUTER_API_KEY"],
-        base_url="https://openrouter.ai/api/v1",
-    )
+    llm = ChatOpenAI(model='gpt-4o')
+    # llm = ChatOpenAI(
+    #     model="openai/gpt-4o-2024-11-20",
+    #     temperature=0,
+    #     api_key=os.environ["OPENROUTER_API_KEY"],
+    #     base_url="https://openrouter.ai/api/v1",
+    # )
 
     tavily_tool = TavilySearchResults(max_results=5)
 

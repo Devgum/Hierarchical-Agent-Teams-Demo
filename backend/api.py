@@ -52,13 +52,13 @@ class SessionManager:
         logger.info("Initializing session manager")
         setup_environment()
         
-        # self.llm = ChatOpenAI(model="gpt-4o")
-        self.llm = ChatOpenAI(
-            model="openai/gpt-4o-2024-11-20",
-            temperature=0,
-            api_key=os.environ["OPENROUTER_API_KEY"],
-            base_url="https://openrouter.ai/api/v1",
-        )
+        self.llm = ChatOpenAI(model="gpt-4o")
+        # self.llm = ChatOpenAI(
+        #     model="openai/gpt-4o-2024-11-20",
+        #     temperature=0,
+        #     api_key=os.environ["OPENROUTER_API_KEY"],
+        #     base_url="https://openrouter.ai/api/v1",
+        # )
         
         self.tavily_tool = TavilySearchResults(max_results=5)
         logger.info(f"LLM and tools initialization completed: {self.llm}, {self.tavily_tool}")
