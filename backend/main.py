@@ -1,6 +1,5 @@
 # coding: utf-8
 
-import os
 import argparse
 import tempfile
 import shutil
@@ -62,7 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--host', type=str, default="0.0.0.0", help='API server listening address')
     parser.add_argument('--port', type=int, default=8000, help='API server listening port')
     args = parser.parse_args()
-    
+
     if args.api:
         run_api_mode(host=args.host, port=args.port)
     else:

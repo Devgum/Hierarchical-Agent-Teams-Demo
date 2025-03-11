@@ -1,19 +1,17 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import os
 import uuid
 import tempfile
 import shutil
 import logging
-from typing import Dict, Any, List, Optional
-import asyncio
+from typing import List, Optional
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 import json
 
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -36,7 +34,7 @@ class Session:
         self.last_used = datetime.now()
         self.working_dir = working_dir
         logger.info(f"Created new session: {self.id}, super_team: {self.super_team}")
-    
+
     def update_last_used(self):
         self.last_used = datetime.now()
 
@@ -46,12 +44,12 @@ class SessionManager:
         self.sessions = {}
         self.llm = None
         self.tavily_tool = None
-    
+
     def initialize(self):
         """Initialize environment and shared resources"""
         logger.info("Initializing session manager")
         setup_environment()
-        
+
         self.llm = ChatOpenAI(model="gpt-4o")
         # self.llm = ChatOpenAI(
         #     model="openai/gpt-4o-2024-11-20",
@@ -59,30 +57,30 @@ class SessionManager:
         #     api_key=os.environ["OPENROUTER_API_KEY"],
         #     base_url="https://openrouter.ai/api/v1",
         # )
-        
+
         self.tavily_tool = TavilySearchResults(max_results=5)
         logger.info(f"LLM and tools initialization completed: {self.llm}, {self.tavily_tool}")
-    
+
     def create_session(self) -> Session:
         """Create new session"""
         logger.info("Starting to create new session")
         if self.llm is None:
             logger.info("LLM not initialized, initializing now")
             self.initialize()
-        
+
         # Create temporary directory as working directory
         temp_dir = Path(tempfile.mkdtemp(prefix="agent_session_"))
         logger.info(f"Created temporary working directory: {temp_dir}")
-            
+
         logger.info("Starting to build super_team")
         super_team = self.build_super_team(temp_dir)
         logger.info(f"super_team build completed: {super_team}")
-        
+
         session = Session(super_team, temp_dir)
         self.sessions[session.id] = session
         logger.info(f"Session creation completed: {session.id}")
         return session
-    
+
     def get_session(self, session_id: str) -> Optional[Session]:
         """Get session"""
         logger.info(f"Attempting to get session: {session_id}")
@@ -93,23 +91,23 @@ class SessionManager:
         else:
             logger.warning(f"Session not found: {session_id} sessions:{self.sessions}")
         return session
-    
+
     def build_super_team(self, working_dir: Path):
         """Build super_team instance"""
         logger.info("Starting to build research_team")
         research_team = build_research_team_graph(self.llm, self.tavily_tool)
         logger.info(f"research_team build completed: {research_team}")
-        
+
         logger.info("Starting to build writing_team")
         writing_team = build_writing_team_graph(self.llm, working_dir)
         logger.info(f"writing_team build completed: {writing_team}")
-        
+
         logger.info("Starting to build super_team")
         super_team = build_super_team_graph(self.llm, research_team, writing_team)
         logger.info(f"super_team build completed: {super_team}")
-        
+
         return super_team
-    
+
     def cleanup_old_sessions(self, max_age_hours=24):
         """Clean up old sessions"""
         now = datetime.now()
@@ -121,7 +119,7 @@ class SessionManager:
         for session_id in expired_sessions:
             self._cleanup_session(session_id)
         return len(expired_sessions)
-    
+
     def _cleanup_session(self, session_id):
         """Clean up resources for a single session"""
         if session_id in self.sessions:
@@ -152,7 +150,7 @@ async def lifespan(app: FastAPI):
 
 # Initialize FastAPI application
 app = FastAPI(
-    title="Hierarchical Agent Team API", 
+    title="Hierarchical Agent Team API",
     description="API for interacting with hierarchical agent teams",
     lifespan=lifespan
 )
@@ -195,7 +193,7 @@ async def get_or_create_session(session_id: Optional[str] = None):
         if session:
             logger.info(f"Using existing session: {session_id}")
             return session
-    
+
     # If no session ID provided or session doesn't exist, create new session
     logger.info("Creating new session")
     return session_manager.create_session()
@@ -211,7 +209,7 @@ async def create_new_session():
 async def get_session_info(session_id: Optional[str] = None):
     """Get session info, verify if session exists if session_id is provided, otherwise create new session"""
     logger.info(f"API request: Get session info, session_id: {session_id}")
-    
+
     if session_id:
         # Verify if session exists
         session = session_manager.get_session(session_id)
@@ -247,7 +245,7 @@ async def stream_generator(query: str, session: Session, recursion_limit: int = 
             yield f"data: ERROR: {error_msg}\n\n"
             yield f"event: end\ndata: {error_msg}\n\n"
             return
-            
+
         stream_input = {
             "messages": [
                 ("user", query)
@@ -272,9 +270,9 @@ async def stream_generator(query: str, session: Session, recursion_limit: int = 
                 "metadata": metadata
             }
             yield f"data: {json.dumps(response_data)}\n\n"
-        
+
         # After all data is sent, send end event
-        yield f"event: end\ndata: Processing completed\n\n"
+        yield "event: end\ndata: Processing completed\n\n"
     except Exception as e:
         error_msg = f"Error generating streaming response: {str(e)}"
         logger.error(error_msg, exc_info=True)
@@ -316,9 +314,9 @@ async def list_files(session_id: str):
         session = session_manager.get_session(session_id)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session {session_id} does not exist")
-        
+
         session.update_last_used()
-        
+
         # Get all files in working directory
         files = []
         for file_path in session.working_dir.glob("**/*"):
@@ -326,7 +324,7 @@ async def list_files(session_id: str):
                 # Return path relative to working directory
                 rel_path = file_path.relative_to(session.working_dir)
                 files.append(str(rel_path))
-        
+
         return FileListResponse(files=files, session_id=session_id)
     except Exception as e:
         logger.error(f"Error getting file list: {str(e)}", exc_info=True)
@@ -340,25 +338,25 @@ async def download_file(session_id: str, file_path: str):
         session = session_manager.get_session(session_id)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session {session_id} does not exist")
-        
+
         session.update_last_used()
-        
+
         # Build complete file path
         full_path = session.working_dir / file_path
-        
+
         # Check if file exists and is within working directory
         if not full_path.exists():
             raise HTTPException(status_code=404, detail=f"File {file_path} does not exist")
-        
+
         if not full_path.is_file():
             raise HTTPException(status_code=400, detail=f"{file_path} is not a file")
-        
+
         # Check if file is within working directory (security check)
         try:
             full_path.relative_to(session.working_dir)
         except ValueError:
             raise HTTPException(status_code=403, detail="Cannot access files outside working directory")
-        
+
         # Return file
         return FileResponse(
             path=str(full_path),
