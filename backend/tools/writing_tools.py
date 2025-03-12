@@ -1,10 +1,7 @@
 # coding: utf-8
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import List, Dict, Optional, Annotated, Callable, Any, Literal, Union
-import uuid
-import functools
+from typing import List, Dict, Optional, Annotated, Literal, Union
 
 from langchain_experimental.utilities import PythonREPL
 from langchain_core.tools import tool
@@ -15,7 +12,7 @@ class WritingTools:
         self.working_directory = working_directory
         # Tool cache
         self._tools_cache = {}
-        
+
         # Tool builder method mapping
         self._tool_builders = {
             "writing": self._build_write_document_tool,
@@ -64,7 +61,7 @@ class WritingTools:
                 file.write(content)
             return f"Document saved to {file_name}"
         return write_document
-    
+
     def _build_edit_document_tool(self):
         @tool
         def edit_document(
@@ -91,9 +88,9 @@ class WritingTools:
                 file.writelines(lines)
 
             return f"Document edited and saved to {file_name}"
-        
+
         return edit_document
-    
+
     def _build_python_repl_tool(self):
         repl = PythonREPL()
 
@@ -108,16 +105,16 @@ class WritingTools:
             except BaseException as e:
                 return f"Failed to execute. Error: {repr(e)}"
             return f"Successfully executed:\n```python\n{code}\n```\nStdout: {result}"
-        
+
         return python_repl_tool
-    
+
     def get_tools(self, tool_types: Union[List[Literal["writing", "editing", "repl", "outline", "reading"]], Literal["writing", "editing", "repl", "outline", "reading"]]):
         """
         Get tools of specified types
-        
+
         Args:
             tool_types: Can be a single tool type or a list of tool types
-            
+
         Returns:
             A list containing the requested tools
         """
@@ -125,7 +122,7 @@ class WritingTools:
         # If a single tool type is passed, convert it to a list
         if isinstance(tool_types, str):
             tool_types = [tool_types]
-            
+
         tools = []
         for tool_type in tool_types:
             if tool_type in self._tool_builders:
@@ -135,5 +132,5 @@ class WritingTools:
                 tools.append(self._tools_cache[tool_type])
             else:
                 raise ValueError(f"Unknown tool type: {tool_type}")
-                
+
         return tools
